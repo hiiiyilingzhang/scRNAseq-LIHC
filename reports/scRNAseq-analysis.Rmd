@@ -109,8 +109,8 @@ cat("counts per cell: ", counts_per_cell[1:5], "\n") ## counts for first 5 cells
 hist(log10(counts_per_cell+1),main='counts per cell',col='Thistle')
 ```
 
-```{r echo=FALSE,eval=TRUE}
-CairoPNG(file="../output/2.2Examine Data/CountsPerCell.png",width=480,height=410,)
+```{r include=FALSE}
+CairoPNG(file="../output/2.ExamineData/CountsPerCell.png",width=480,height=410,)
 hist(log10(counts_per_cell+1),main='counts per cell',col='Thistle')
 dev.off()
 ```
@@ -125,8 +125,8 @@ cat("counts for non-zero genes: ", genes_per_cell[1:5])  ## counts for first 5 g
 hist(log10(genes_per_cell+1), main='genes per cell', col='Thistle')
 ```
 
-```{r echo=FALSE,eval=TRUE}
-CairoPNG(file="../output/2.2 Examine Data/GenesPerCell.png",width=480,height=410,)
+```{r include=FALSE}
+CairoPNG(file="../output/2.ExamineData/GenesPerCell.png",width=480,height=410,)
 hist(log10(genes_per_cell+1), main='genes per cell', col='Thistle')
 dev.off()
 ```
@@ -136,8 +136,8 @@ plot(counts_per_cell, genes_per_cell, log='xy', col='Thistle')
 title('counts vs genes per cell')
 ```
 
-```{r echo=FALSE,eval=TRUE}
-CairoPNG(file="../output/2.2 Examine Data/Counts&GenesPerCell.png",width=480,height=410,)
+```{r include=FALSE}
+CairoPNG(file="../output/2.ExamineData/Counts&GenesPerCell.png",width=480,height=410,)
 plot(counts_per_cell, genes_per_cell, log='xy', col='Thistle')
 title('counts vs genes per cell')
 dev.off()
@@ -148,11 +148,14 @@ Here we rank each cell by its library complexity, ie the number of genes detecte
 ```{r}
 plot(sort(genes_per_cell), xlab='cell', log='y', main='genes per cell (ordered)')
 ```
-```{r echo=FALSE,eval=TRUE}
-CairoPNG(file="../output/2.2 Examine Data/GenesPerCell(ordered).png",width=480,height=410,)
+
+```{r include=FALSE}
+CairoPNG(file="../output/2.ExamineData/GenesPerCell(ordered).png",width=480,height=410,)
 plot(sort(genes_per_cell), xlab='cell', log='y', main='genes per cell (ordered)')
 dev.off()
+```
 
+```{r include=FALSE}
 rm(counts_per_cell,genes_per_cell)
 ```
 
@@ -216,7 +219,9 @@ Add meta data
 ```{r}
 set1.obj <- AddMetaData(object = set1.obj, metadata = set1.meta)
 head(set1.obj@meta.data)
+```
 
+```{r include=FALSE}
 rm(set1.meta, set1.s1, set1.s2)
 ```
 
@@ -226,6 +231,7 @@ While the `CreateSeuratObject` imposes a basic minimum gene-cutoff, then we need
 
 ## 3.1 Remove Doublets
 Doublets/Mulitples of cells in the same well/droplet is a common issue in scRNAseq protocols. Especially in droplet-based methods whith overloading of cells. In a typical 10x experiment the proportion of doublets is linearly dependent on the amount of loaded cells. As indicated from the Chromium user guide, doublet rates are about as follows:
+
 ```{r echo=FALSE,out.width = '60%',fig.align = "center"}
 knitr::include_graphics("../src/Figures/doubletrate.png")
 ```
@@ -234,6 +240,8 @@ Most doublet detectors simulates doublets by merging cell counts and predicts do
 
 
 Here, we will use `DoubletFinder` to predict doublet cells. But before doing doublet detection we need to run scaling, variable gene selection and pca, as well as UMAP for visualization.   
+
+
 [Github-DoubletFinder](https://github.com/chris-mcginnis-ucsf/DoubletFinder)   
 DoubletFinder is an R package that predicts doublets in single-cell RNA sequencing data.
 
@@ -284,10 +292,10 @@ To optimize the parameters, you can run the `paramSweep` function in the package
 ```
 
 ```{r}
-load("../output/3.1 Remove Doublets/pk_bcmvn.RData")
+load("../data/RemoveDoublets/pk_bcmvn.RData")
 ```
 
-```{r message=TRUE}
+```{r message=FALSE, warning=FALSE}
 ## Exclude doublets
 # DoubletRate is set according to the table 10X provided
 DoubletRate = 0.023
@@ -303,20 +311,30 @@ set1.obj <- doubletFinder_v3(set1.obj, PCs = pc.num, pN = 0.25, pK = pK_bcmvn,
 ```
 
 ```{r}
-## count
-table(set1.obj$DF.classifications_0.25_0.03_98)
-```
-
-```{r}
 ## Present the res, classification info is saved in set1.obj@meta.data
 DF.name <- colnames(set1.obj@meta.data)[grepl("DF.classification", colnames(set1.obj@meta.data))]
+```
 
+
+```{r}
 cowplot::plot_grid(ncol = 2, DimPlot(set1.obj, group.by = "Clinical.Info") + NoAxes(), DimPlot(set1.obj, group.by = DF.name) + NoAxes())
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/3.QC/doubletsInfo.png",width=840,height=480,)
+cowplot::plot_grid(ncol = 2, DimPlot(set1.obj, group.by = "Clinical.Info") + NoAxes(), DimPlot(set1.obj, group.by = DF.name) + NoAxes())
+dev.off()
 ```
 
 We should expect that two cells have more detected genes than a single cell, lets check if our predicted doublets also have more detected genes in general.
 ```{r}
 VlnPlot(set1.obj, features = "nFeature_RNA", group.by = DF.name, pt.size = 0.1)
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/3.QC/doublets-vin-feature.png",width=700,height=480)
+VlnPlot(set1.obj, features = "nFeature_RNA", group.by = DF.name, pt.size = 0.1)
+dev.off()
 ```
 
 Now, lets remove all predicted doublets from our data.  
@@ -391,7 +409,15 @@ Now we can plot some of the QC-features as violin plots.
 ```{r}
 feats <- c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo", "percent.hb")
 VlnPlot(set1.obj, group.by = "Clinical.Info", features = feats, pt.size = 0.1, ncol = 2) + NoLegend()
+```
+```{r include=FALSE}
+CairoPNG(file="../output/3.QC/QC-vin-feature.png",width=750,height=900)
+feats <- c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo", "percent.hb")
+VlnPlot(set1.obj, group.by = "Clinical.Info", features = feats, pt.size = 0.1, ncol = 2) + NoLegend()
+dev.off()
+```
 
+```{r include=FALSE}
 rm(feats)
 ```
 
@@ -399,6 +425,12 @@ As you can see, there is quite some difference in quality for the 4 datasets, wi
 
 ```{r}
 FeatureScatter(set1.obj, "nCount_RNA", "nFeature_RNA", group.by = "Clinical.Info", pt.size = 0.5)
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/3.QC/QC-scatter-feature.png",width=800,height=500)
+FeatureScatter(set1.obj, "nCount_RNA", "nFeature_RNA", group.by = "Clinical.Info", pt.size = 0.5)
+dev.off()
 ```
 
 ## 3.3 Filtering
@@ -421,13 +453,18 @@ par(mar = c(4, 8, 2, 1))
 C <- set1.obj@assays$RNA@counts
 C <- Matrix::t(Matrix::t(C)/Matrix::colSums(C)) * 100
 most_expressed <- order(apply(C, 1, median), decreasing = T)[20:1]
-boxplot(as.matrix(t(C[most_expressed, ])), cex = 0.1, las = 1, xlab = "% total count per cell", 
-    col = (scales::hue_pal())(20)[20:1], horizontal = TRUE)
+boxplot(as.matrix(t(C[most_expressed, ])), cex = 0.1, las = 1, xlab = "% total count per cell", col = (scales::hue_pal())(20)[20:1], horizontal = TRUE)
 ```
+```{r include=FALSE}
+CairoPNG(file="../output/3.QC/QC-boxplot-gene.png",width=850,height=550)
+boxplot(as.matrix(t(C[most_expressed, ])), cex = 0.1, las = 1, xlab = "% total count per cell", col = (scales::hue_pal())(20)[20:1], horizontal = TRUE)
+dev.off()
+```
+
 As you can see, MALAT1 constitutes up to 10% of the UMIs from a single cell and the other top genes are mitochondrial and ribosomal genes. It is quite common that nuclear lincRNAs have correlation with quality and mitochondrial reads, so high detection of MALAT1 may be a technical issue. Let us assemble some information about such genes, which are important for quality control and downstream filtering.
 
-```{r}
-rm(selected_c,selected_f, most_expressed, C)
+```{r include=FALSE}
+rm(selected_c,selected_f, most_expressed, C,feats)
 ```
 
 ### 3.3.2 Mito/Ribo filtering
@@ -464,6 +501,14 @@ feats <- c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo", "percent.
 VlnPlot(set1.obj, group.by = "Clinical.Info", features = feats, pt.size = 0.1, ncol = 3) + NoLegend()
 ```
 
+```{r include=FALSE}
+CairoPNG(file="../output/3.QC/QC-vin-feature-after.png",width=750,height=900)
+VlnPlot(set1.obj, group.by = "Clinical.Info", features = feats, pt.size = 0.1, ncol = 3) + NoLegend()
+dev.off()
+```
+
+
+
 ```{r}
 rm(selected_mito, selected_ribo, feats)
 saveRDS(set1.obj, file = "../data/tmp.data/set1-qc.rds")
@@ -492,8 +537,7 @@ knitr::include_graphics("../src/Figures/scRNAseqDataProcessing-3.png")
 
 ```{r warning=FALSE}
 # run sctransform 
-set1.obj <- SCTransform(set1.obj, vars.to.regress = "percent.mt", verbose = FALSE, 
-                        seed.use = 2021) 
+set1.obj <- SCTransform(set1.obj, vars.to.regress = "percent.mt", verbose = FALSE, seed.use = 2021) 
 set1.obj
 ```
 
@@ -519,15 +563,34 @@ Seurat v3 provides functions for visualizing:
 DimPlot(object = set1.obj, reduction = "pca",group.by = "Clinical.Info")
 ```
 
+```{r include=FALSE}
+CairoPNG(file="../output/5.ReDim/pca-dimplot.png",width=600,height=500)
+DimPlot(object = set1.obj, reduction = "pca",group.by = "Clinical.Info")
+dev.off()
+```
+
 2. Visualizing PCA in FeaturePlot
 ```{r}
 # Dimensional reduction plot, with cells colored by a quantitative feature
-FeaturePlot(object = set1.obj, features = "MS4A1")
+FeaturePlot(object = set1.obj, features = "CD3G")
 ```
+
+```{r include=FALSE}
+CairoPNG(file="../output/5.ReDim/cd3g-feature.png",width=600,height=500)
+FeaturePlot(object = set1.obj, features = "CD3G")
+dev.off()
+```
+
 3. Visualizing PCA in ScatterPlot
 ```{r}
 # Scatter plot across single cells, replaces GenePlot
-FeatureScatter(object = set1.obj, feature1 = "MS4A1", feature2 = "PC_1")
+FeatureScatter(object = set1.obj, feature1 = "CD3G", feature2 = "PC_1", group.by = "Clinical.Info")
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/5.ReDim/cd3g-scatter.png",width=600,height=500)
+FeatureScatter(object = set1.obj, feature1 = "CD3G", feature2 = "PC_1", group.by = "Clinical.Info")
+dev.off()
 ```
 
 4. Visualizing PCA in Heatmap  
@@ -536,7 +599,13 @@ In particular DimHeatmap allows for easy exploration of the primary sources of h
 
 ```{r}
 # Heatmaps
-DimHeatmap(object = set1.obj, reduction = "pca", cells = 200, balanced = TRUE)
+DimHeatmap(object = set1.obj, reduction = "pca", cells = 150, balanced = TRUE)
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/5.ReDim/heatmap.png",width=460,height=500)
+DimHeatmap(object = set1.obj, reduction = "pca", cells = 150, balanced = TRUE)
+dev.off()
 ```
 
 ## 5.2 Determine statistically significant principal components
@@ -550,15 +619,23 @@ ElbowPlot(object = set1.obj)
 First calculate k-nearest neighbors and construct the SNN graph (`FindNeighbors`), then run `FindClusters`.
 
 ```{r}
-set1.obj <- FindNeighbors(set1.obj, reduction = "pca", dims = 1:30)
+set1.obj <- FindNeighbors(set1.obj, reduction = "pca", dims = 1:20)
 ```
 
 Check resolution
-```{r message=FALSE}
+```{r message=FALSE, warning=FALSE}
 library(clustree)
 checkRes <- FindClusters(object = set1.obj, resolution = c(seq(.1,1.6,.2)))
 clustree(checkRes@meta.data,prefix = "SCT_snn_res.")
+```
 
+```{r include=FALSE}
+CairoPNG(file="../output/5.ReDim/Rescheck-clustree.png",width=660,height=750)
+clustree(checkRes@meta.data,prefix = "SCT_snn_res.")
+dev.off()
+```
+
+```{r include=FALSE}
 rm(checkRes)
 ```
 
@@ -570,6 +647,13 @@ set1.obj <- FindClusters(object = set1.obj,
                        random.seed = 2021)
 DimPlot(set1.obj, label = TRUE) + NoLegend() 
 ```
+
+```{r include=FALSE}
+CairoPNG(file="../output/5.ReDim/cluster-dimplot.png",width=630,height=500)
+DimPlot(set1.obj, label = TRUE) + NoLegend()
+dev.off()
+```
+
 
 ## 5.4 Run non-linear dimensional reduction (UMAP/tSNE)
 Seurat continues to use tSNE as a powerful tool to visualize and explore these datasets. 
@@ -591,6 +675,12 @@ set1.obj <- RunTSNE(object = set1.obj, dims.use = 1:20, do.fast = TRUE)
 DimPlot(object = set1.obj, group.by = "Clinical.Info",reduction = "tsne")
 ```
 
+```{r include=FALSE}
+CairoPNG(file="../output/5.ReDim/tsne-dimplot.png",width=630,height=500)
+DimPlot(object = set1.obj, group.by = "Clinical.Info",reduction = "tsne")
+dev.off()
+```
+
 Compared with Figure 1B in paper:
 
 ```{r echo=FALSE,out.width = '50%',fig.align = "center"}
@@ -599,7 +689,7 @@ knitr::include_graphics("../src/Figures/Figure1B.png")
 
 >Caption: t-SNE plot of all the 5,115 single cells from 12 primary liver cancer patients (indicated by colors). Case ID was named according to histological subtypes of liver cancer, with H and C representing HCC and iCCA, respectively.
 
-**Figure 1C**
+**Figure 1C**  
 >We found some cells with high expression levels of epithelial marker genes, suggesting a potential tumoral origin (Figure 1C). 
 
 ```{r}
@@ -621,6 +711,12 @@ To visualize the two conditions side-by-side, we can use the split.by argument t
 ```{r message=FALSE}
 set1.obj <- RunUMAP(set1.obj, reduction = "pca", dims = 1:20)
 DimPlot(set1.obj, reduction = "umap", group.by = "Clinical.Info")
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/5.ReDim/umap-dimplot.png",width=630,height=500)
+DimPlot(set1.obj, reduction = "umap", group.by = "Clinical.Info")
+dev.off()
 ```
 
 # 6. Find differentially expressed genes (cluster biomarkers)
@@ -655,18 +751,36 @@ cluster1.markers <- FindMarkers(object = set1.obj, ident.1 = 0, thresh.use = 0.2
 ```
 
 ```{r}
-top10 <- markers %>% group_by(cluster) %>% top_n(10, avg_log2FC)
+top5 <- markers %>% group_by(cluster) %>% top_n(5, avg_log2FC)
 # setting slim.col.label to TRUE will print just the cluster IDS instead of
 # every cell name
-DoHeatmap(object = set1.obj, features = top10$gene, label = TRUE,group.by = "Clinical.Info")
+DoHeatmap(object = set1.obj, features = top5$gene, label = TRUE,group.by = "seurat_clusters")
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/6.ClusterMarkers/heatmap-clinical.png",width=1030,height=1100)
+DoHeatmap(object = set1.obj, features = top5$gene, label = TRUE,group.by = "Clinical.Info")
+dev.off()
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/6.ClusterMarkers/heatmap-cluster.png",width=1030,height=1100)
+DoHeatmap(object = set1.obj, features = top5$gene, label = TRUE,group.by = "seurat_clusters")
+dev.off()
 ```
 
 ```{r}
 FeaturePlot(object = set1.obj, features = c("CD3G", "CD3E", "CD3D", "CD79A", "FCRL5", "PECAM1", "VWF", "COL1A2", "CD14"), cols = c("grey", "blue"), reduction = "tsne")
 ```
 
-```{r}
-rm(top10, cluster1.markers, markers)
+```{r include=FALSE}
+CairoPNG(file="../output/6.ClusterMarkers/featureplot.png",width=800,height=650)
+FeaturePlot(object = set1.obj, features = c("CD3G", "CD3E", "CD3D", "CD79A", "FCRL5", "PECAM1", "VWF", "COL1A2", "CD14"), cols = c("grey", "blue"), reduction = "tsne")
+dev.off()
+```
+
+```{r include=FALSE}
+rm(top5, cluster1.markers, markers,checkRes)
 ```
 
 # 7. Cell type annotation(SingleR)
@@ -679,7 +793,6 @@ Each row of the output DataFrame contains prediction results for a single cell. 
 
 ```{r}
 library(SingleR)
-# BiocManager::install("celldex")
 library(celldex)
 library(scater)
 
@@ -689,6 +802,7 @@ library(scater)
 
 
 The easiest way to use `SingleR` is to annotate cells against built-in references. In particular, the `celldex` package provides access to several reference datasets (mostly derived from bulk RNA-seq or microarray data) through dedicated retrieval functions.
+
 ```{r}
 set1.test <- as.data.frame(set1.obj[["RNA"]]@counts)
 
@@ -701,6 +815,8 @@ hpca.se
 
 ```{r}
 set1_forhpca.se <- SummarizedExperiment(assays=list(counts=set1.test[common_hpca,])) %>% logNormCounts()
+
+set1_forhpca.se[["seurat_cluster"]] <- set1.obj$seurat_clusters
 set1_forhpca.se
 ```
 
@@ -712,16 +828,16 @@ set1_forhpca.se
 # 来识别标签对之间比较的top markers。与默认的标记检测算法相比，此方法会更慢，
 pred.main.hpca <- SingleR(test = set1_forhpca.se, ref = hpca.se,
                           labels = hpca.se$label.main,de.method="wilcox",
-                          fine.tune = TRUE)
+                          clusters = set1_forhpca.se$seurat_cluster)
 table(pred.main.hpca$pruned.labels)
 ```
 
 ```{r}
 result_main_hpca <- as.data.frame(pred.main.hpca$labels)
 result_main_hpca$CB <- rownames(pred.main.hpca)
-colnames(result_main_hpca) <- c('HPCA_Main', 'CB')
+colnames(result_main_hpca) <- c('HPCA_Main', 'seurat_clusters')
 
-write.table(result_main_hpca, file = "../output/7. Annotation/HPCA_Main.txt", sep = '\t', row.names = FALSE, col.names = TRUE, quote = FALSE)
+write.table(result_main_hpca, file = "../output/7.Annotation/HPCA_Main.txt", sep = '\t', row.names = FALSE, col.names = TRUE, quote = FALSE)
 
 head(result_main_hpca)
 ```
@@ -731,10 +847,16 @@ We inspect the results using a heatmap of the per-cell and label scores. Ideally
 plotScoreHeatmap(pred.main.hpca)
 ```
 
+```{r include=FALSE}
+CairoPNG(file="../output/6.ClusterMarkers/featureplot.png",width=800,height=650)
+plotScoreHeatmap(pred.main.hpca)
+dev.off()
+```
+
 Add to set1.obj metadata
 ```{r}
 set1.obj@meta.data$CB <- rownames(set1.obj@meta.data)
-set1.obj@meta.data <- merge(set1.obj@meta.data,result_main_hpca,by="CB")
+set1.obj@meta.data <- merge(set1.obj@meta.data,result_main_hpca,by="seurat_clusters")
 rownames(set1.obj@meta.data) <- set1.obj@meta.data$CB
 
 head(set1.obj@meta.data)
@@ -753,8 +875,8 @@ p6 <- DimPlot(set1.obj, reduction = "tsne", group.by = "ident",   pt.size=0.5, l
 plot_grid(p6, p5,rel_widths = c(2,3))
 ```
 
-```{r echo=FALSE,eval=TRUE}
-CairoPNG(file="../output/7. Annotation/Compare.png",width=1080,height=400,)
+```{r include=FALSE}
+CairoPNG(file="../output/7.Annotation/tsne-compare.png",width=1080,height=460,)
 plot_grid(p6, p5,rel_widths = c(2,3))
 dev.off()
 ```
@@ -1261,6 +1383,8 @@ rm(my.cellchat)
 
 
 # 11. RNA velocity
+
+
 
 # 12. Enrichment
 ## 12.1 GO/KEGG
