@@ -1212,6 +1212,7 @@ dat.bind <- aggregate(dat$pecent.ma, by = list(grp.sample = dat$Clinical.Info, g
 total <- aggregate(dat.bind$x, by = list(grp.sample = dat.bind$grp.sample),sum)
 dat.bind <- merge(dat.bind,total,all.x = T, by = "grp.sample")
 dat.bind$pecent <- dat.bind$x.x/dat.bind$x.y
+dat.bind$grp.status <- factor(dat.bind$grp.status, levels = c("non-Malignant","Malignant"))
 head(dat.bind)
 ```
 
@@ -1267,6 +1268,8 @@ head(dat.bind)
 
 ```{r}
 library(ggsci)
+library(ggplot2)
+dat.bind$grp.cell <- factor(dat.bind$grp.cell)
 ggplot(dat.bind,aes(grp.sample,pecent,fill=grp.cell))+
   geom_bar(stat="identity",position="fill")+
   ggtitle("Number of malignant cells")+
@@ -1520,13 +1523,19 @@ dev.off()
 ```
 
 
-
 ---
 
 >Intratumor transcriptomic biodiversity among tumors could be further revealed by correlation analysis of all malignant cells
 
+Correlation files
 ```{r}
-# 构建行注释信息
+tmp.data <- dgc_as_matrix(malignant.obj@assays$RNA@counts) %>% as.data.frame()
+tmp.data <- cor(tmp.data)
+tmp.data[1:4,1:4]
+```
+
+Annotation Files
+```{r}
 annotation_row = data.frame(
   Clinical = factor(malignant.obj$Classification),
   Sample = factor(malignant.obj$Clinical.Info)
@@ -1536,18 +1545,38 @@ annotation_col = data.frame(
   Clinical = factor(malignant.obj$Classification),
   Sample = factor(malignant.obj$Clinical.Info)
 )
-head(annotation_row)
+
+head(annotation_col)
 ```
 
 ```{r}
-tmp.data <- dgc_as_matrix(malignant.obj@assays$RNA@counts) %>% as.data.frame()
-pheatmap::pheatmap(tmp.data, clustering_method="ward.D2", color = colorRampPalette(c("navy", "white", "firebrick3"))(50), annotation_row = annotation_row, annotation_col = annotation_col, cluster_rows = T, cluster_cols = T, show_rownames = F, show_colnames = F)
+ann_colors = list( Clinical = c(HCC = "#D87F23", iCCA = "#A5A5A5"), Sample = c(H18 = "#fad3cf", H21 = "#2d095c", H23 = "#20366b", H28 ="#dd7777", H30 = "#eae3e3", H37 = "#2E94B9", H38 = "#FFFDC0", C25 = "#F0B775", C26 = "#D25565", C29 = "#a39e9e", C35 = "#2470a0", C39 = "#a696c8"))
+```
+
+```{r}
+CairoPNG(file="../output/9.celltrajectory/ITH-heatmap.png",width=800,height=800)
+pheatmap::pheatmap(tmp.data, clustering_method="ward.D2",
+                   annotation_col = annotation_col, annotation_row = annotation_row,
+                   annotation_colors = ann_colors, 
+                   cluster_rows = T, cluster_cols = T, 
+                   show_rownames = F, show_colnames = F, 
+                   color = colorRampPalette(c("navy", "white", "firebrick3"))(50))
+dev.off()
+```
+
+```{r echo=FALSE,out.width = '70%',fig.align = "center"}
+knitr::include_graphics("../output/9.celltrajectory/ITH-heatmap.png")
+```
+
+Compare with the result in the paper
+```{r echo=FALSE,out.width = '60%',fig.align = "center"}
+knitr::include_graphics("../src/Figures/corrplot.png")
 ```
 
 ---
 
 ```{r include=FALSE}
-rm(agg_mat, cell_group, embed, gene_module, my.cds, p, Track_genes, genelist, root.cell, Track_genes_sig)
+rm(agg_mat, cell_group, embed, gene_module, my.cds, p, Track_genes, genelist, root.cell, Track_genes_sig, annotation_col, annotation_row, ann_colors, tmp.data)
 ```
 
 # 10. Cell-cell communication
@@ -1599,11 +1628,11 @@ my.cellchat@DB <- CellChatDB.use
 To infer the cell state-specific communications, we identify over-expressed ligands or receptors in one cell group and then identify over-expressed ligand-receptor interactions if either ligand or receptor is over-expressed.  
 
 
-```{r}
+```{r identifyOverExpressGene/Interaction}
 # subset the expression data of signaling genes for saving computation cost
 my.cellchat <- CellChat::subsetData(my.cellchat, features = NULL) # This step is necessary even if using the whole database
 
-future::plan("multiprocess", workers = 6) # do parallel
+# future::plan("multiprocess", workers = 6) # do parallel
 my.cellchat <- identifyOverExpressedGenes(my.cellchat)
 my.cellchat <- identifyOverExpressedInteractions(my.cellchat)
 
@@ -1652,10 +1681,23 @@ my.cellchat <- aggregateNet(my.cellchat)
 We can also visualize the aggregated cell-cell communication network. For example, showing the number of interactions or the total interaction strength (weights) between any two cell groups using circle plot.
 
 ```{r}
+my.cellchat <- readRDS("../data/cellchat/cellchat-obj.rds")
+```
+
+```{r}
 groupSize <- as.numeric(table(my.cellchat@idents))
 par(mfrow = c(1,2), xpd=TRUE)
 netVisual_circle(my.cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions")
 netVisual_circle(my.cellchat@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights/strength")
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/10.Cellcellcommu/interactions.png",width=550,height=400)
+groupSize <- as.numeric(table(my.cellchat@idents))
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_circle(my.cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions")
+netVisual_circle(my.cellchat@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights/strength")
+dev.off()
 ```
 
 ```{r}
@@ -1663,6 +1705,7 @@ my.cellchat@netP$pathways
 ```
 
 ```{r}
+future::plan("multiprocess", workers = 6) # do parallel
 netVisual_aggregate(my.cellchat, signaling = "FGF", layout = "chord")
 ```
 
@@ -1681,38 +1724,50 @@ netVisual_aggregate(my.cellchat, signaling = "FLT3", layout = "chord")
 
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
-CairoPNG(file="../output/10.CellChat/Number of interactions.png",width=480,height=480,)
+CairoPNG(file="../output/10.Cellcellcommu/Number of interactions.png",width=480,height=480,)
 netVisual_circle(my.cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions")
 dev.off()
 
-CairoPNG(file="../output/10.CellChat/Interaction weights/strength.png",width=480,height=480,)
+CairoPNG(file="../output/10.Cellcellcommu/Interaction weights/strength.png",width=480,height=480,)
 netVisual_circle(my.cellchat@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights/strength")
 dev.off()
 
-CairoPNG(file="../output/10.CellChat/FGF.png",width=480,height=480,)
+CairoPNG(file="../output/10.Cellcellcommu/FGF.png",width=480,height=480,)
 netVisual_aggregate(my.cellchat, signaling = "FGF", layout = "chord")
 dev.off()
 
-CairoPNG(file="../output/10.CellChat/IL4.png",width=480,height=480,)
+CairoPNG(file="../output/10.Cellcellcommu/IL4.png",width=480,height=480,)
 netVisual_aggregate(my.cellchat, signaling = "IL4", layout = "chord")
 dev.off()
 
-CairoPNG(file="../output/10.CellChat/FLT3.png",width=480,height=480,)
+CairoPNG(file="../output/10.Cellcellcommu/FLT3.png",width=480,height=480,)
 netVisual_aggregate(my.cellchat, signaling = "FLT3", layout = "chord")
 dev.off()
 
-CairoPNG(file="../output/10.CellChat/CD40.png",width=480,height=480,)
+CairoPNG(file="../output/10.Cellcellcommu/CD40.png",width=480,height=480,)
 netVisual_aggregate(my.cellchat, signaling = "CD40", layout = "chord")
 dev.off()
+```
 
+```{r}
 rm(mat, mat2, meta, df.net, groupSize, i, labels, data.input,CellChatDB,CellChatDB.use)
-saveRDS(my.cellchat, file = "../data/cellchat/cellchat-obj.rds")
+# saveRDS(my.cellchat, file = "../data/cellchat/cellchat-obj.rds")
 rm(my.cellchat)
 ```
 
 
 # 11. RNA velocity
 
+
+[GitHub-Velocyto](https://github.com/velocyto-team)  
+[Homepage-Velocyto](http://velocyto.org/)  
+velocyto is a package for the analysis of expression dynamics in single cell RNA seq data.
+
+**Generating Loom files**
+To start, we will be generating loom files (a file format designed for genomics datasets such as single-cell) for every single-cell sample you used in your Seurat analysis. A loom file is different from the file format you used in Seurat. A loom file has to be generated from the original FASTQ or BAM files for your samples(s).
+
+
+**Skip RNA velocity due to the absence of FASTQ or BAM files**
 
 
 # 12. Enrichment
@@ -1799,7 +1854,7 @@ ggsave("../output/12.Enrichment/enrichKEGG.png", plot = plotc2, width = 12, heig
 rm(sig_dge.cluster, dge.cluster, ego_all, ego_ALL, ego_BP, ego_CC, ego_MF, p_BP, p_CC, p_MF, plotc, plotc2, p1, p2, ekegg, genelist)
 ```
 
-## 12.3 GSVA
+## 12.2 GSVA
 ```{r}
 library(msigdbr) # provide MSigdb gene set
 library(dplyr)
@@ -1821,7 +1876,6 @@ MSigdb（Molecular Signatures Database）contains 9 different gene set:
 * C8：single cell identitiy gene sets, 302 gene sets  
 
 
-
 ```{r}
 meta <- set1.obj@meta.data[,c("Clinical.Info","seurat_clusters","Classification")]
 m_df <- msigdbr(species = "Homo sapiens", category = "C2", subcategory = "CP:KEGG") 
@@ -1830,52 +1884,77 @@ msigdbr_list <- split(x = m_df$gene_symbol, f = m_df$gs_name)
 expr <- as.matrix(set1.obj@assays$RNA@counts) 
 ```
 
+If I don't use `job` package, R would be shut down easily!
 ```{r}
-kegg <- gsva(expr, msigdbr_list, kcdf="Gaussian",method = "gsva") #gsva
+job::job(kegg.info= { kegg <- gsva(expr, msigdbr_list, kcdf="Gaussian",method = "gsva", parallel.sz = 10)
+})
+```
 
-pheatmap(kegg, show_rownames=1, show_colnames=0, annotation_col=meta,fontsize_row=5, filename='gsva_heatmap.png', width=15, height=12)#绘制热图
-es <- data.frame(t(kegg),stringsAsFactors=F)  
+```{r include=FALSE}
+CairoPNG(file="../output/12.Enrichment/gsva_heatmap.png",width=1400,height=1800,)
+pheatmap(kegg.info$kegg, show_rownames=1, show_colnames=0)
+dev.off()
+```
+
+
+```{r}
+es <- data.frame(t(kegg.info$kegg),stringsAsFactors=F)  
+```
+
+Add meta data
+```{r}
+set1.obj <- AddMetaData(set1.obj, es)
 ```
 
 ```{r}
-#添加到单细胞矩阵中，可视化相关通路的在umap上聚集情况，可理解为一个通路即一个基因
-scRNA <- AddMetaData(pbmc, es)
-p1 <- FeaturePlot(scRNA, features = "KEGG_PRIMARY_BILE_ACID_BIOSYNTHESIS", reduction = 'umap')
-p2 <- FeaturePlot(scRNA, features = "KEGG_ETHER_LIPID_METABOLISM", reduction = 'umap')
-p3 <- FeaturePlot(scRNA, features = "KEGG_RIBOSOME", reduction = 'umap')
-p4 <- FeaturePlot(scRNA, features = "KEGG_ASTHMA", reduction = 'umap')
+p1 <- FeaturePlot(set1.obj, features = "KEGG_LIMONENE_AND_PINENE_DEGRADATION", reduction = 'umap')
+p2 <- FeaturePlot(set1.obj, features = "KEGG_ETHER_LIPID_METABOLISM", reduction = 'umap')
+p3 <- FeaturePlot(set1.obj, features = "KEGG_RIBOSOME", reduction = 'umap')
+p4 <- FeaturePlot(set1.obj, features = "KEGG_ASTHMA", reduction = 'umap')
 plotc = (p1|p2)/(p3|p4)
-ggsave('gsva_featureplot.png', plotc, width = 10, height = 8) #输出图片
-##每个细胞类别与功能相关热图
+ggsave("../output/12.Enrichment/gsva_featureplot.png", plotc, width = 12, height = 8)
+plotc
+```
+
+Heatmap of every cluster and their function
+```{r}
 meta <- meta %>%arrange(meta$seurat_clusters)
-data <- kegg[,rownames(meta)]
+data <- kegg.info$kegg[,rownames(meta)]
+
 group <- factor(meta[,"seurat_clusters"],ordered = F)
 data1 <-NULL
+
 for(i in 0:(length(unique(group))-1)){
 ind <-which(group==i)
 dat <- apply(data[,ind], 1, mean)
 data1 <-cbind(data1,dat)
 }
-colnames(data1) <-c("C0","C1","C2","C3","C4","C5","C6","C7","C8")
+
+colnames(data1) <- paste("Cluster",1:17)
 result<- t(scale(t(data1)))
 result[result>2]=2
 result[result<-2]=-2
-library(pheatmap)
+```
+
+```{r}
 p <- pheatmap(result[1:20,],
                 cluster_rows = F,
-                cluster_cols = F,
+                cluster_cols = T,
                 show_rownames = T,
                 show_colnames = T,
                 color =colorRampPalette(c("blue", "white","red"))(100),
-                cellwidth = 10, cellheight = 15,
-                fontsize = 10)
-pdf(("gsva_celltype.pdf"),width = 7,height = 7)
+                cellwidth = 10, cellheight = 18,
+                fontsize = 6)
+pdf(("../output/12.Enrichment/gsva_celltype.pdf"),width = 8,height = 8)
 print(p)
 dev.off()
 ```
 
-## 12.3 GSVA
+```{r include=FALSE}
+rm(p,p1,p2,p3,p4,plotc,result,dat,group,i,ind,meta,msigdbr_list,m_df,kegg.info,expr,es,data1,data)
+```
 
+# 13. 
 
 # References  
 
