@@ -945,7 +945,6 @@ Required input files:
 dat <- set1.obj@assays$SCT@counts  ## dgCMatrix
 
 dgc_as_matrix <- function(mat){
- 
   tmp <- matrix(data=0L, nrow = mat@Dim[1], ncol = mat@Dim[2])
   
   row_pos <- mat@i+1
@@ -1199,7 +1198,7 @@ rm(p10, p11, p12, p13, p14, p9)
 
 4. Number of malignant cells
 
-make input file
+make input file1
 ```{r}
 dat <- set1.obj@meta.data[,c("Clinical.Info","cnv_score")]
 dat$pecent.ma <- 1
@@ -1216,6 +1215,8 @@ dat.bind$pecent <- dat.bind$x.x/dat.bind$x.y
 head(dat.bind)
 ```
 
+---
+
 ```{r}
 library(ggsci)
 ggplot(dat.bind,aes(grp.sample,pecent,fill=grp.status))+
@@ -1226,6 +1227,72 @@ ggplot(dat.bind,aes(grp.sample,pecent,fill=grp.status))+
     guides(fill=guide_legend(title=NULL))
 ```
 
+```{r include=FALSE}
+CairoPNG(file="../output/8.inferCNV/num-malignant.png",width=600,height=460)
+ggplot(dat.bind,aes(grp.sample,pecent,fill=grp.status))+
+  geom_bar(stat="identity",position="fill")+
+  ggtitle("Number of malignant cells")+
+  scale_fill_simpsons(alpha = 0.9)+
+    theme(axis.ticks.length=unit(0.5,'cm'))+
+    guides(fill=guide_legend(title=NULL))
+dev.off()
+```
+
+```{r echo=FALSE,out.width = '60%',fig.align = "center"}
+knitr::include_graphics("../src/Figures/num-malignant.png")
+```
+
+```{r}
+rm(dat,dat.bind,total)
+```
+
+---
+
+Make input file2
+```{r}
+dat <- nonmalignant.obj@meta.data[,c("Clinical.Info","Type")]
+dat$pecent <- 1
+
+dat$Clinical.Info <- as.factor(dat$Clinical.Info)
+dat$Type <- as.factor(dat$Type)
+
+dat.bind <- aggregate(dat$pecent, by = list(grp.sample = dat$Clinical.Info, grp.cell = dat$Type),sum) 
+
+total <- aggregate(dat.bind$x, by = list(grp.cell = dat.bind$grp.cell),sum)
+
+dat.bind <- merge(dat.bind,total,all.x = T, by = "grp.cell")
+dat.bind$pecent <- dat.bind$x.x/dat.bind$x.y
+head(dat.bind)
+```
+
+```{r}
+library(ggsci)
+ggplot(dat.bind,aes(grp.sample,pecent,fill=grp.cell))+
+  geom_bar(stat="identity",position="fill")+
+  ggtitle("Number of malignant cells")+
+  scale_fill_simpsons(alpha = 0.9)+
+    theme(axis.ticks.length=unit(0.5,'cm'))+
+    guides(fill=guide_legend(title=NULL))
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/8.inferCNV/num-nonmalignant.png",width=600,height=460)
+ggplot(dat.bind,aes(grp.sample,pecent,fill=grp.cell))+
+  geom_bar(stat="identity",position="fill")+
+  ggtitle("Number of malignant cells")+
+  scale_fill_simpsons(alpha = 0.9)+
+    theme(axis.ticks.length=unit(0.5,'cm'))+
+    guides(fill=guide_legend(title=NULL))
+dev.off()
+```
+
+```{r echo=FALSE,out.width = '60%',fig.align = "center"}
+knitr::include_graphics("../src/Figures/composition.png")
+```
+
+```{r}
+rm(dat,dat.bind,total)
+```
 
 # 9. Cell trajectory
 
@@ -1253,21 +1320,25 @@ knitr::include_graphics("../src/Figures/cell-trajextory-workflow.png")
 
 ## 9.1 Create a Monocle CDS Object
 1. Expression matrix
+
+>we first examined the cell trajectory of malignant cells for each tumor by using a reversed graph embedding method. 
+
 ```{r}
 # Create an expression matrix
-expression_matrix <- set1.obj@assays$RNA@counts
-expression_matrix_df <- set1.obj@assays$RNA@counts %>% dgc_as_matrix() %>% as.data.frame()
+expression_matrix <- malignant.obj@assays$RNA@counts
+expression_matrix_df <- malignant.obj@assays$RNA@counts %>% dgc_as_matrix() %>% as.data.frame()
 head(expression_matrix_df)
 ```
 
 2. Cell metadata
 ```{r}
 # Get cell metadata
-cell_metadata <- set1.obj@meta.data
+cell_metadata <- malignant.obj@meta.data
 head(cell_metadata)
 ```
+
 ```{r}
-cell_metadata_sort <- data.frame(matrix(NA, 4322,2))
+cell_metadata_sort <- data.frame(matrix(NA, nrow(cell_metadata)),2)
 cell_metadata_sort$CB <- colnames(expression_matrix_df)
 
 cell_metadata_sort <- plyr::join(cell_metadata_sort, cell_metadata, by = "CB")
@@ -1282,7 +1353,7 @@ identical(rownames(cell_metadata_sort), expression_matrix@Dimnames[[2]])
 3. Gene annotations
 ```{r}
 # get gene annotations
-gene_annotation <- data.frame(gene_short_name = rownames(set1.obj@assays$RNA), row.names = rownames(set1.obj@assays$RNA))
+gene_annotation <- data.frame(gene_short_name = rownames(malignant.obj@assays$RNA), row.names = rownames(malignant.obj@assays$RNA))
 head(gene_annotation)
 ```
 
@@ -1306,21 +1377,36 @@ rm(cell_metadata, cell_metadata_sort, expression_matrix, expression_matrix_df, g
 my.cds <- preprocess_cds(my.cds, num_dim = 30)
 
 # umap降维
-my.cds <- reduce_dimension(my.cds, preprocess_method = "UMAP")
+my.cds <- reduce_dimension(my.cds, preprocess_method = "PCA")
 plot_cells(my.cds, reduction_method="PCA", color_cells_by="Type") + ggtitle('cds.pca')
 ```
+
+```{r include=FALSE}
+CairoPNG(file="../output/9.celltrajectory/pca-cells.png",width=410,height=420)
+plot_cells(my.cds, reduction_method="PCA", color_cells_by="Type") + ggtitle('cds.pca')
+dev.off()
+```
+
 
 Import Seurat data
 ```{r}
 ##从seurat导入整合过的umap坐标
-my.cds@int_colData@listData$reducedDims$UMAP <- set1.obj@reductions$umap@cell.embeddings
+my.cds@int_colData@listData$reducedDims$UMAP <- malignant.obj@reductions$umap@cell.embeddings
 
 plot_cells(my.cds, reduction_method="UMAP", color_cells_by="Type") + ggtitle('int.umap')
 ```
 
+```{r include=FALSE}
+CairoPNG(file="../output/9.celltrajectory/umap-cells.png",width=410,height=420)
+plot_cells(my.cds, reduction_method="UMAP", color_cells_by="Type") + ggtitle('int.umap')
+dev.off()
+```
+
 ```{r}
 # Copy cluster info from Seurat
-my.cds@clusters$UMAP_so$clusters <- set1.obj@meta.data$DF.classifications_0.25_0.03_98
+DF.name <- colnames(malignant.obj@meta.data)[grepl("DF.classification", colnames(malignant.obj@meta.data))]
+
+my.cds@clusters$UMAP_so$clusters <- malignant.obj@meta.data$DF.name
 ```
 
 ## 9.3 Run Monocle3
@@ -1332,25 +1418,36 @@ plot_cells(my.cds, show_trajectory_graph = FALSE) + ggtitle("label by clusterID"
 ```
 
 ```{r}
-plot_cells(my.cds, color_cells_by = "partition", show_trajectory_graph = FALSE) + ggtitle("label by partitionID")
+plot_cells(my.cds, color_cells_by = "cluster", show_trajectory_graph = FALSE) + ggtitle("label by cluster")
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/9.celltrajectory/cluster-cells.png",width=410,height=420)
+plot_cells(my.cds, color_cells_by = "cluster", show_trajectory_graph = FALSE) + ggtitle("label by cluster")
+dev.off()
 ```
 
 ### 9.3.2 Recognize trajectory
 ```{r}
 ## 识别轨迹
-my.cds <- learn_graph(my.cds)
+my.cds <- learn_graph(my.cds, use_partition = T)
 
-p <- plot_cells(my.cds, label_groups_by_cluster = FALSE, label_leaves = FALSE, 
-               label_branch_points = FALSE)
+p <- plot_cells(my.cds, reduction_method = "UMAP", color_cells_by = "Type", group_cells_by = "cluster", label_groups_by_cluster = T, label_leaves = T, label_branch_points = FALSE, show_trajectory_graph = T)
 p
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/9.celltrajectory/trajectory-umap.png",width=560,height=340)
+p
+dev.off()
 ```
 
 ### 9.3.4 Sort by pseudotime
 ```{r}
 ##细胞按拟时排序
 # my.cds <- order_cells(my.cds)
-# saveRDS(my.cds,"../output/9. Monocle3/mycds.rds")
-my.cds<-readRDS("../output/9. Monocle3/mycds.rds")
+# saveRDS(my.cds,"../data/celltrajectory/mycds.rds")
+my.cds<-readRDS("../data/celltrajectory/mycds.rds")
 
 # p + geom_vline(xintercept = seq(-7,-6,0.25)) + geom_hline(yintercept = seq(0,1,0.25))
 # embed <- data.frame(Embeddings(set1.obj, reduction = "umap"))
@@ -1359,6 +1456,13 @@ my.cds<-readRDS("../output/9. Monocle3/mycds.rds")
 # my.cds <- order_cells(my.cds, root_cells = root.cell)
 plot_cells(my.cds, color_cells_by = "pseudotime", label_cell_groups = FALSE,
            label_leaves = FALSE,  label_branch_points = FALSE)
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/9.celltrajectory/trajectory-pseudotime.png",width=560,height=340)
+plot_cells(my.cds, color_cells_by = "pseudotime", label_cell_groups = FALSE,
+           label_leaves = FALSE,  label_branch_points = FALSE)
+dev.off()
 ```
 
 ### 9.3.5 Find DEGs
@@ -1378,10 +1482,24 @@ plot_genes_in_pseudotime(my.cds[Track_genes_sig,], color_cells_by="Type",
                               min_expr=0.5, ncol = 2)
 ```
 
+```{r include=FALSE}
+CairoPNG(file="../output/9.celltrajectory/genes_in_pseudotime.png",width=830,height=630)
+plot_genes_in_pseudotime(my.cds[Track_genes_sig,], color_cells_by="Type", 
+                              min_expr=0.5, ncol = 2)
+dev.off()
+```
+
 ```{r}
 #FeaturePlot图
 plot_cells(my.cds, genes=Track_genes_sig, show_trajectory_graph=FALSE,
                label_cell_groups=FALSE,  label_leaves=FALSE)
+```
+
+```{r include=FALSE}
+CairoPNG(file="../output/9.celltrajectory/genes_in_featureplot.png",width=720,height=540)
+plot_cells(my.cds, genes=Track_genes_sig, show_trajectory_graph=FALSE,
+               label_cell_groups=FALSE,  label_leaves=FALSE)
+dev.off()
 ```
 
 ```{r}
@@ -1394,6 +1512,40 @@ agg_mat <- aggregate_gene_expression(my.cds, gene_module, cell_group)
 row.names(agg_mat) <- stringr::str_c("Module ", row.names(agg_mat))
 pheatmap::pheatmap(agg_mat, clustering_method="ward.D2")
 ```
+
+```{r include=FALSE}
+CairoPNG(file="../output/9.celltrajectory/modules.png",width=720,height=1000)
+pheatmap::pheatmap(agg_mat, clustering_method="ward.D2")
+dev.off()
+```
+
+
+
+---
+
+>Intratumor transcriptomic biodiversity among tumors could be further revealed by correlation analysis of all malignant cells
+
+```{r}
+# 构建行注释信息
+annotation_row = data.frame(
+  Clinical = factor(malignant.obj$Classification),
+  Sample = factor(malignant.obj$Clinical.Info)
+)
+
+annotation_col = data.frame(
+  Clinical = factor(malignant.obj$Classification),
+  Sample = factor(malignant.obj$Clinical.Info)
+)
+head(annotation_row)
+```
+
+```{r}
+tmp.data <- dgc_as_matrix(malignant.obj@assays$RNA@counts) %>% as.data.frame()
+pheatmap::pheatmap(tmp.data, clustering_method="ward.D2", color = colorRampPalette(c("navy", "white", "firebrick3"))(50), annotation_row = annotation_row, annotation_col = annotation_col, cluster_rows = T, cluster_cols = T, show_rownames = F, show_colnames = F)
+```
+
+---
+
 ```{r include=FALSE}
 rm(agg_mat, cell_group, embed, gene_module, my.cds, p, Track_genes, genelist, root.cell, Track_genes_sig)
 ```
