@@ -1,43 +1,28 @@
 ---
-title: "scRNA-seq"
-author: "18230130张祎泠"
-date: "2021/4/19"
+title: "scRNAseq project-Tumor Cell Biodiversity Drives Microenvironmental Reprogramming in Liver Cancer"
+author: "Yiling Zhang 18230130"
+date: "`r Sys.Date()`"
 output: 
-  html_document:
-    highlight: tango
-    theme: cerulean
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
     df_print: paged
     toc: true
-    toc_float: true
+toc-title: "Table of Contents"
+vignette: >
+  %\VignetteIndexEntry{scRNAseq project-Tumor Cell Biodiversity Drives Microenvironmental Reprogramming in Liver Cancer - Yiling Zhang 18230130}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
-<style>
-  p{
-    font-size:18px;
-    line-height:1.7em;
-  }
-</style>
 
-```{r setup, include=FALSE}
-all_times <- list()  # store the time for each chunk
-knitr::knit_hooks$set(time_it = local({
-  now <- NULL
-  function(before, options) {
-    if (before) {
-      now <<- Sys.time()
-    } else {
-      res <- difftime(Sys.time(), now, units = "secs")
-      all_times[[options$label]] <<- res
-    }
-  }
-}))
+```{r include=FALSE}
 knitr::opts_chunk$set(
-  tidy = TRUE,
-  tidy.opts = list(width.cutoff = 95),
-  fig.width = 10,
-  message = FALSE,
-  warning = FALSE,
-  time_it = TRUE
+  echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	fig.align = "center",
+  fig.width = 8
 )
 ```
 
@@ -49,9 +34,11 @@ Downloaded data from GEO(GSE125449) and unzip.   [GSE125449-Page](https://www.nc
 Set1: discovery set, 12 patients, 5115 cells after initial quality controls  
 Set2: validation set, 7 patients  
 
-Features:  
+Features: 
+
 * Col1: gene.ids  
 * Col2: gene.symbol
+
 ```{bash}
 zcat ../data/Set1.raw/features.tsv.gz | head
 ```
@@ -62,10 +49,12 @@ List of barcodes
 zcat ../data/Set1.raw/barcodes.tsv.gz | head
 ```
 
-Matrix：
+Matrix：  
+
 * Col 1: Line number of Gene ID in features.tsv   
 * Col 2: Line number of cell info in barcodes.tsv     
 * Col 3: Gene TPM
+
 ```{bash}
 zcat  ../data/Set1.raw/matrix.mtx.gz | head
 ```
@@ -161,8 +150,10 @@ rm(counts_per_cell,genes_per_cell)
 
 ## 2.3 Initialize Seurat Object
 Then initialize the Seurat object with the raw data (non-normalized data):   
+
 * `min.cells = 3` Keep all genes expressed in >= 3 cells (~0.1% of the data)  
 * `min.features  = 200` Keep all cells with at least 200 detected genes  
+
 
 ```{r}
 # Initialize Seurat object
@@ -232,7 +223,7 @@ While the `CreateSeuratObject` imposes a basic minimum gene-cutoff, then we need
 ## 3.1 Remove Doublets
 Doublets/Mulitples of cells in the same well/droplet is a common issue in scRNAseq protocols. Especially in droplet-based methods whith overloading of cells. In a typical 10x experiment the proportion of doublets is linearly dependent on the amount of loaded cells. As indicated from the Chromium user guide, doublet rates are about as follows:
 
-```{r echo=FALSE,out.width = '60%',fig.align = "center"}
+```{r echo=FALSE,out.width = '70%',fig.align = "center"}
 knitr::include_graphics("../src/Figures/doubletrate.png")
 ```
 
@@ -252,33 +243,33 @@ DoubletFinder is an R package that predicts doublets in single-cell RNA sequenci
 3. Perform PCA and use the PC distance matrix to find each cell's proportion of artificial k nearest neighbors (pANN)  
 4. Rank order and threshold pANN values according to the expected number of doublets  
 
-```{r echo=FALSE,out.width = '80%',fig.align = "center"}
+```{r echo=FALSE,out.width = '100%',fig.align = "center"}
 knitr::include_graphics("../src/Figures/doubletsfinder.png")
 ```
 
 ```{r}
 library(DoubletFinder)
-library(tidyverse)
 library(patchwork)
 library(sctransform)
 ```
 
-Pre-process Seurat object (sctransform)  
-```{r message=FALSE, warning=FALSE}
-set1.obj <- SCTransform(set1.obj) %>% RunPCA()
+### 3.1.1 Pre-process Seurat object (sctransform)  
+```{r}
+set1.obj <- SCTransform(set1.obj, verbose = F) %>% RunPCA(verbose = F)
 ```
 
 ```{r}
 ElbowPlot(set1.obj)
 ```
 
-```{r message=FALSE, warning=FALSE}
+```{r}
 pc.num=1:20
-set1.obj <- RunUMAP(set1.obj, dims=pc.num)
+set1.obj <- RunUMAP(set1.obj, dims=pc.num,verbose = F)
 ```
 
-To optimize the parameters, you can run the `paramSweep` function in the package.  
-* Use SCTransform!!!!Consume lots of CPU!!!!!
+### 3.1.2 Optimize the parameters
+To optimize the parameters, you can run the `paramSweep` function in the package.   
+**Use SCTransform!!!!Consume lots of CPU!!!!!**
 ```{r}
 # ## parameter optimization, look for the best pK
 # sweep.res.list <- paramSweep_v3(set1.obj, PCs = pc.num, sct = T,num.cores = 1)
@@ -295,7 +286,8 @@ To optimize the parameters, you can run the `paramSweep` function in the package
 load("../data/RemoveDoublets/pk_bcmvn.RData")
 ```
 
-```{r message=FALSE, warning=FALSE}
+### 3.1.3 Run DoubletFinder
+```{r}
 ## Exclude doublets
 # DoubletRate is set according to the table 10X provided
 DoubletRate = 0.023
@@ -304,10 +296,12 @@ homotypic.prop <- modelHomotypic(set1.obj$Type)
 nExp_poi <- round(DoubletRate*ncol(set1.obj)) 
 # Adjust for homotypic doublets
 nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+```
 
+```{r}
 ## Run DoubletFinder with varying classification stringencies
 set1.obj <- doubletFinder_v3(set1.obj, PCs = pc.num, pN = 0.25, pK = pK_bcmvn, 
-                         nExp = nExp_poi.adj, reuse.pANN = F, sct = T)
+                         nExp = nExp_poi.adj, reuse.pANN = F, sct = F)
 ```
 
 ```{r}
@@ -343,7 +337,7 @@ set1.obj <- set1.obj[, set1.obj@meta.data[, DF.name] == "Singlet"]
 set1.obj
 ```
 
-```{r}
+```{r include=FALSE}
 rm(DF.name, DoubletRate, homotypic.prop, nExp_poi,nExp_poi.adj, pc.num,pK_bcmvn)
 ```
 
@@ -352,12 +346,16 @@ rm(DF.name, DoubletRate, homotypic.prop, nExp_poi,nExp_poi.adj, pc.num,pK_bcmvn)
 Having the data in a suitable format, we can start calculating some quality metrics. We can for example calculate the percentage of mitocondrial and ribosomal genes per cell and add to the metadata. This will be helpfull to visualize them across different metadata parameteres (i.e. datasetID and chemistry version).    
 
 
-A few QC metrics commonly used by the community include
-* The number of unique genes detected in each cell.  
-  + Low-quality cells or empty droplets will often have very few genes  
-  + Cell doublets or multiplets may exhibit an aberrantly high gene count
+A few QC metrics commonly used by the community include:  
 
-* The total number of molecules detected within a cell (correlates strongly with unique genes)  
+* The number of unique genes detected in each cell.   
+  + Low-quality cells or empty droplets will often have very few genes    
+  + Cell doublets or multiplets may exhibit an aberrantly high gene count  
+ 
+
+* The total number of molecules detected within a cell (correlates strongly with unique genes)   
+
+
 * The percentage of reads that map to the mitochondrial genome   
   + Low-quality / dying cells often exhibit extensive mitochondrial contamination   
   + Calculate mitochondrial QC metrics with the `PercentageFeatureSet()` function, which calculates the percentage of counts originating from a set of features    
@@ -406,9 +404,9 @@ head(set1.obj@meta.data)
 ## 3.2 Plot QC
 
 Now we can plot some of the QC-features as violin plots.
-```{r}
+```{r fig.width=10}
 feats <- c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo", "percent.hb")
-VlnPlot(set1.obj, group.by = "Clinical.Info", features = feats, pt.size = 0.1, ncol = 2) + NoLegend()
+VlnPlot(set1.obj, group.by = "Clinical.Info", features = feats, pt.size = 0.1, ncol = 3) + NoLegend()
 ```
 ```{r include=FALSE}
 CairoPNG(file="../output/3.QC/QC-vin-feature.png",width=750,height=900)
@@ -469,11 +467,13 @@ rm(selected_c,selected_f, most_expressed, C,feats)
 
 ### 3.3.2 Mito/Ribo filtering
 We also have quite a lot of cells with high proportion of mitochondrial and low proportion of ribosomal reads. It could be wise to remove those cells, if we have enough cells left after filtering.  
+
 Another option would be to either remove all mitochondrial reads from the dataset and hope that the remaining genes still have enough biological signal.  
 A third option would be to just regress out the percent_mito variable during scaling.
 
 
 In this case we had as much as 99.7% mitochondrial reads in some of the cells, so it is quite unlikely that there is much cell type signature left in those.
+
 Looking at the plots, make reasonable decisions on where to draw the cutoff. In this case, the bulk of the cells are below 20% mitochondrial reads and that will be used as a cutoff. We will also remove cells with less than 5% ribosomal reads.
 
 ```{r}
@@ -495,7 +495,7 @@ We can also notice that the percent_ribo are also highly variable, but that is e
 
 ### 3.3.3 Plot filtered QC
 Lets plot the same QC-stats another time.
-```{r}
+```{r fig.width=10}
 feats <- c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo", "percent.hb")
 
 VlnPlot(set1.obj, group.by = "Clinical.Info", features = feats, pt.size = 0.1, ncol = 3) + NoLegend()
@@ -509,7 +509,7 @@ dev.off()
 
 
 
-```{r}
+```{r include=FALSE}
 rm(selected_mito, selected_ribo, feats)
 saveRDS(set1.obj, file = "../data/tmp.data/set1-qc.rds")
 # set1.obj <- readRDS("../data/tmp.data/set1-qc.rds")
@@ -525,6 +525,7 @@ R package for normalization and variance stabilization of single-cell RNA-seq da
 * Transformed data will be available in the SCT assay, which is set as the default after running sctransform.   
 * During normalization, we can also remove confounding sources of variation, for example, mitochondrial mapping percentage.   
 
+
 ```{r echo=FALSE,out.width = '100%',fig.align = "center"}
 knitr::include_graphics("../src/Figures/scRNAseqDataProcessing-2.png")
 ```
@@ -535,7 +536,7 @@ knitr::include_graphics("../src/Figures/scRNAseqDataProcessing-2.png")
 knitr::include_graphics("../src/Figures/scRNAseqDataProcessing-3.png")
 ```
 
-```{r warning=FALSE}
+```{r}
 # run sctransform 
 set1.obj <- SCTransform(set1.obj, vars.to.regress = "percent.mt", verbose = FALSE, seed.use = 2021) 
 set1.obj
@@ -552,13 +553,14 @@ set1.obj <- RunPCA(object = set1.obj,
 ```
 
 Seurat v3 provides functions for visualizing:   
+
 * PCA - PCA plot coloured by a quantitative feature   
 * Scatter plot across single cells and individual features   
 * Variable Feature Plot  
 * Violin and Ridge plots  
 * Heatmaps  
 
-1. Visualizing PCA in DimPlot
+**Visualizing PCA in DimPlot**
 ``` {r}
 DimPlot(object = set1.obj, reduction = "pca",group.by = "Clinical.Info")
 ```
@@ -569,7 +571,7 @@ DimPlot(object = set1.obj, reduction = "pca",group.by = "Clinical.Info")
 dev.off()
 ```
 
-2. Visualizing PCA in FeaturePlot
+**Visualizing PCA in FeaturePlot**
 ```{r}
 # Dimensional reduction plot, with cells colored by a quantitative feature
 FeaturePlot(object = set1.obj, features = "CD3G")
@@ -581,7 +583,7 @@ FeaturePlot(object = set1.obj, features = "CD3G")
 dev.off()
 ```
 
-3. Visualizing PCA in ScatterPlot
+**Visualizing PCA in ScatterPlot**
 ```{r}
 # Scatter plot across single cells, replaces GenePlot
 FeatureScatter(object = set1.obj, feature1 = "CD3G", feature2 = "PC_1", group.by = "Clinical.Info")
@@ -593,7 +595,7 @@ FeatureScatter(object = set1.obj, feature1 = "CD3G", feature2 = "PC_1", group.by
 dev.off()
 ```
 
-4. Visualizing PCA in Heatmap  
+**Visualizing PCA in Heatmap**
 
 In particular DimHeatmap allows for easy exploration of the primary sources of heterogeneity in a dataset, and can be useful when trying to decide which PCs to include for further downstream analyses. Both cells and genes are ordered according to their PCA scores.
 
@@ -623,9 +625,9 @@ set1.obj <- FindNeighbors(set1.obj, reduction = "pca", dims = 1:20)
 ```
 
 Check resolution
-```{r message=FALSE, warning=FALSE}
+```{r fig.height=8}
 library(clustree)
-checkRes <- FindClusters(object = set1.obj, resolution = c(seq(.1,1.6,.2)))
+checkRes <- FindClusters(object = set1.obj, resolution = c(seq(.1,1.6,.2)), verbose = F)
 clustree(checkRes@meta.data,prefix = "SCT_snn_res.")
 ```
 
@@ -690,6 +692,7 @@ knitr::include_graphics("../src/Figures/Figure1B.png")
 >Caption: t-SNE plot of all the 5,115 single cells from 12 primary liver cancer patients (indicated by colors). Case ID was named according to histological subtypes of liver cancer, with H and C representing HCC and iCCA, respectively.
 
 **Figure 1C**  
+
 >We found some cells with high expression levels of epithelial marker genes, suggesting a potential tumoral origin (Figure 1C). 
 
 ```{r}
@@ -750,7 +753,7 @@ The ROC test returns the ‘classification power’ for any individual marker (r
 cluster1.markers <- FindMarkers(object = set1.obj, ident.1 = 0, thresh.use = 0.25, test.use = "roc", only.pos = TRUE)
 ```
 
-```{r}
+```{r fig.height=12, fig.width=10}
 top5 <- markers %>% group_by(cluster) %>% top_n(5, avg_log2FC)
 # setting slim.col.label to TRUE will print just the cluster IDS instead of
 # every cell name
@@ -863,7 +866,7 @@ head(set1.obj@meta.data)
 ```
 
 Examine the result of annotation.
-```{r}
+```{r fig.width=10}
 p5 <- DimPlot(set1.obj, reduction = "tsne", group.by = "HPCA_Main", pt.size=0.5)+theme(
   axis.line = element_blank(),
   axis.ticks = element_blank(),axis.text = element_blank()
@@ -881,13 +884,15 @@ plot_grid(p6, p5,rel_widths = c(2,2))
 dev.off()
 ```
 
-```{r}
-rm(hpca.se,p5,p6,pred.main.hpca,result_main_hpca,set1_forhpca.se,set1.test,common_hpca)
+```{r include=FALSE}
+rm(hpca.se,p5,p6,pred.main.hpca,result_main_hpca,set1_forhpca.se,
+   set1.test,common_hpca)
 ```
 
 ---
-Conparison between SingleR annotation and the annotation from paper
-```{r}
+Conparison between SingleR annotation and the annotation from paper  
+
+```{r fig.width=10}
 p7 <- DimPlot(set1.obj, reduction = "tsne", group.by = "HPCA_Main", pt.size=0.5, label = TRUE,repel = TRUE)+theme(
   axis.line = element_blank(),
   axis.ticks = element_blank(),axis.text = element_blank()
@@ -898,6 +903,7 @@ p8 <- DimPlot(set1.obj, reduction = "tsne", group.by = "Type", pt.size=0.5, labe
 )
 plot_grid(p7, p8, rel_widths = c(2,2))
 ```
+
 ```{r include=FALSE}
 CairoPNG(file="../output/7.Annotation/tsne-compare-2.png",width=1080,height=460,)
 p7 <- DimPlot(set1.obj, reduction = "tsne", group.by = "HPCA_Main", pt.size=0.5, label = TRUE,repel = TRUE)+theme(
@@ -935,10 +941,10 @@ Required input files:
 
 ### 8.1.3 Raw Counts Matrix for Genes x Cells
 
-**dgCMatrix to data.frame**
-`@Dim`: dimention information;
-`@Dimnames`: rownames and colnames;  
-`@x`: non-zero   
+**dgCMatrix to data.frame**  
+`@Dim`: dimention information;  
+`@Dimnames`: rownames and colnames; 
+`@x`: non-zero    
 `@i`: non-zero index which is consistent with `@x`   
 
 ```{r}
@@ -1024,13 +1030,16 @@ infercnv_obj <- infercnv::run(infercnv_obj,
                              HMM=T) # Whether to predict CNV based on HMM
 ```
 
+
 * `cutoff`: inferCNV suggests that 10X data set up to 0.1 and smart-seq set as 1;  
-* `cluster_by_groups`: used to cluster tumor cell according to cell annotation files . 
+* `cluster_by_groups`: used to cluster tumor cell according to cell annotation files.  
+
 
 The key parameter is `cutoff`, Used to select which genes will be used for analysis (the average expression level in all cells needs to be greater than a certain threshold). This needs to be calculated according to the specific sequencing depth. The official tutorial recommends setting 10X to 0.1 and smart-seq to 1. You can first evaluate the number of retained genes under different thresholds to determine the specific value. `cluster_by_groups` used to declare whether to group tumor cells according to the grouping of the cell annotation file.  
 
 
 This will eventually output a lot of files inout_dirIn the directory, but actually useful are the following:    
+
 * infercnv.preliminary.png: preliminary inferCNV display results (without denoising or HMM prediction)  
 * infercnv.png: The denoising heat map generated by the final inferCNV.  
 * infercnv.references.txt: Normal cell matrix.  
@@ -1042,7 +1051,7 @@ This will eventually output a lot of files inout_dirIn the directory, but actual
 knitr::include_graphics("../data/inferCNV/results/infercnv.png")
 ```
 
-```{r}
+```{r include=FALSE}
 rm(cellAnno,dat, geneInfor,rawexpr)
 ```
 
@@ -1076,10 +1085,10 @@ Malignant cells were defined as those with CNV score above 80th percentile of al
 
 # Check
 colnames(cnv_score_table) <- gsub("\\.","\\-",colnames(cnv_score_table))
-table(cnv_score_table[,1])
+cnv_score_table[1:3,1:4]
 ```
 
-```{r}
+```{r eval=FALSE}
 # Replace with score 
 cnv_score_table_pts <- cnv_table
 rm(cnv_score_mat)
@@ -1093,8 +1102,12 @@ cell_scores_CNV[cell_scores_CNV <= quantile(cell_scores_CNV, probs = 0.8)] <- "n
 
 rownames(cell_scores_CNV) <- gsub("\\.","\\-",rownames(cell_scores_CNV))
 
-head(cell_scores_CNV)
 write.csv(x = cell_scores_CNV, file = "../data/inferCNV/cnv_scores.csv")
+```
+
+```{r}
+load("../data/inferCNV/cell-score.RData")
+table(cell_scores_CNV)
 ```
 
 ### 8.3.2 Add metadata
@@ -1110,7 +1123,7 @@ head(set1.obj@meta.data)
 ```
 
 ```{r include=FALSE}
-rm(cell_scores_CNV, cnv_score_table, cnv_score_table_pts, cnv_score_table_t, cnv_table)
+rm(cell_scores_CNV, cnv_score_table, cnv_table, cnv_score_mat)
 saveRDS(set1.obj,"../data/tmp.data/210601-anno-inferCNV.rds")
 ```
 
@@ -1124,7 +1137,7 @@ nonmalignant.obj <- subset(set1.obj, cells = WhichCells(set1.obj, expression = c
 ```
 
 1. `group.by = "Clinical.Info"`
-```{r}
+```{r fig.width=10}
 p9 <- DimPlot(malignant.obj, reduction = "tsne", group.by = "Clinical.Info", pt.size=0.5, label = TRUE,repel = TRUE) +  labs(title="Malignant Cells")+
   theme(
   plot.title = element_text(hjust = 0.5),
@@ -1147,7 +1160,7 @@ dev.off()
 ```
 
 2. `group.by = "Type"`
-```{r}
+```{r fig.width=10}
 p11 <- DimPlot(malignant.obj, reduction = "tsne", group.by = "Type", pt.size=0.5, label = TRUE,repel = TRUE) +  labs(title="Malignant Cells")+
   theme(
   plot.title = element_text(hjust = 0.5),
@@ -1170,7 +1183,7 @@ dev.off()
 ```
 
 3. `group.by = "HPCA_Main"`
-```{r}
+```{r fig.width=10}
 p13 <- DimPlot(malignant.obj, reduction = "tsne", group.by = "HPCA_Main", pt.size=0.5, label = TRUE,repel = TRUE) +  labs(title="Malignant Cells")+
   theme(
   plot.title = element_text(hjust = 0.5),
@@ -1243,7 +1256,7 @@ dev.off()
 knitr::include_graphics("../src/Figures/num-malignant.png")
 ```
 
-```{r}
+```{r include=FALSE}
 rm(dat,dat.bind,total)
 ```
 
@@ -1293,7 +1306,7 @@ dev.off()
 knitr::include_graphics("../src/Figures/composition.png")
 ```
 
-```{r}
+```{r include=FALSE}
 rm(dat,dat.bind,total)
 ```
 
@@ -1433,7 +1446,7 @@ dev.off()
 ### 9.3.2 Recognize trajectory
 ```{r}
 ## 识别轨迹
-my.cds <- learn_graph(my.cds, use_partition = T)
+my.cds <- learn_graph(my.cds, use_partition = T, verbose = FALSE)
 
 p <- plot_cells(my.cds, reduction_method = "UMAP", color_cells_by = "Type", group_cells_by = "cluster", label_groups_by_cluster = T, label_leaves = T, label_branch_points = FALSE, show_trajectory_graph = T)
 p
@@ -1473,7 +1486,10 @@ dev.off()
 ##寻找拟时轨迹差异基因
 # graph_test分析最重要的结果是莫兰指数（morans_I），其值在-1至1之间，0代表此基因没有
 # 空间共表达效应，1代表此基因在空间距离相近的细胞中表达值高度相似。
-Track_genes <- graph_test(my.cds, neighbor_graph="knn", cores=6)
+Track_genes <- graph_test(my.cds, neighbor_graph="knn", cores=1, verbose = FALSE)
+```
+
+```{r}
 #挑选top10画图展示
 Track_genes_sig <- Track_genes %>% top_n(n=10, morans_I) %>%
                    pull(gene_short_name) %>% as.character()
@@ -1505,8 +1521,9 @@ plot_cells(my.cds, genes=Track_genes_sig, show_trajectory_graph=FALSE,
 dev.off()
 ```
 
-```{r}
-##寻找共表达模块
+Find co-expression modules:
+
+```{r fig.height=12}
 genelist <- pull(Track_genes, gene_short_name) %>% as.character()
 gene_module <- find_gene_modules(my.cds[genelist,], resolution=1e-2, cores = 6)
 cell_group <- tibble::tibble(cell=row.names(colData(my.cds)), 
@@ -1531,7 +1548,7 @@ Correlation files
 ```{r}
 tmp.data <- dgc_as_matrix(malignant.obj@assays$RNA@counts) %>% as.data.frame()
 tmp.data <- cor(tmp.data)
-tmp.data[1:4,1:4]
+tmp.data[1:4,1:3]
 ```
 
 Annotation Files
@@ -1553,8 +1570,8 @@ head(annotation_col)
 ann_colors = list( Clinical = c(HCC = "#D87F23", iCCA = "#A5A5A5"), Sample = c(H18 = "#fad3cf", H21 = "#2d095c", H23 = "#20366b", H28 ="#dd7777", H30 = "#eae3e3", H37 = "#2E94B9", H38 = "#FFFDC0", C25 = "#F0B775", C26 = "#D25565", C29 = "#a39e9e", C35 = "#2470a0", C39 = "#a696c8"))
 ```
 
-```{r}
-CairoPNG(file="../output/9.celltrajectory/ITH-heatmap.png",width=800,height=800)
+```{r include=FALSE}
+CairoPNG(file="../output/9.celltrajectory/ITH-heatmap.png",width=800,height=1000)
 pheatmap::pheatmap(tmp.data, clustering_method="ward.D2",
                    annotation_col = annotation_col, annotation_row = annotation_row,
                    annotation_colors = ann_colors, 
@@ -1590,7 +1607,7 @@ CellChat: Inference and analysis of cell-cell communication
 * It provides several visualization outputs to facilitate intuitive user-guided data interpretation.  
 
 
-```{r echo=FALSE,out.width = '60%',fig.align = "center"}
+```{r echo=FALSE,out.width = '80%',fig.align = "center"}
 knitr::include_graphics("../src/Figures/cellchat.png")
 ```
 
@@ -1798,7 +1815,7 @@ ego_all <- data.frame(ego_ALL)
 write.csv(ego_all,'../output/12.Enrichment/enrichGO.csv')           
 ```
 
-```{r}
+```{r fig.height=7}
 ego_CC <- enrichGO(gene          = row.names(sig_dge.cluster),
                    #universe     = row.names(dge.celltype),
                    OrgDb         = 'org.Hs.eg.db',
@@ -1858,13 +1875,13 @@ rm(sig_dge.cluster, dge.cluster, ego_all, ego_ALL, ego_BP, ego_CC, ego_MF, p_BP,
 ```{r}
 library(msigdbr) # provide MSigdb gene set
 library(dplyr)
-library(msigdbr)
 library(GSVA)
 library(pheatmap)
 library(patchwork)
 ```
 
-MSigdb（Molecular Signatures Database）contains 9 different gene set:  
+MSigdb（Molecular Signatures Database）contains 9 different gene set:   
+
 * H：hallmark gene sets---癌症特征基因集合，共50 gene sets。  
 * C1：positional gene sets---染色体位置基因集合，共299 gene sets。  
 * C2：curated gene sets---包含了已知数据库，文献等基因集信息，包含5529 gene sets。  
@@ -1884,10 +1901,15 @@ msigdbr_list <- split(x = m_df$gene_symbol, f = m_df$gs_name)
 expr <- as.matrix(set1.obj@assays$RNA@counts) 
 ```
 
-If I don't use `job` package, R would be shut down easily!
-```{r}
-job::job(kegg.info= { kegg <- gsva(expr, msigdbr_list, kcdf="Gaussian",method = "gsva", parallel.sz = 10)
+If I don't use `job` package, R would be shut down easily! But RMarkdown doesn't support `job` package because it's actually a RStudio plugin.
+```{r eval=FALSE}
+job::job(kegg.info= { kegg <- gsva(expr, msigdbr_list, kcdf="Gaussian",method = "gsva", parallel.sz = 16)
 })
+save(kegg.info, file = "../data/Enrichment/kegg-info.RData")
+```
+
+```{r include=FALSE}
+load("../data/Enrichment/kegg-info.RData")
 ```
 
 ```{r include=FALSE}
@@ -1906,7 +1928,7 @@ Add meta data
 set1.obj <- AddMetaData(set1.obj, es)
 ```
 
-```{r}
+```{r fig.width=9}
 p1 <- FeaturePlot(set1.obj, features = "KEGG_LIMONENE_AND_PINENE_DEGRADATION", reduction = 'umap')
 p2 <- FeaturePlot(set1.obj, features = "KEGG_ETHER_LIPID_METABOLISM", reduction = 'umap')
 p3 <- FeaturePlot(set1.obj, features = "KEGG_RIBOSOME", reduction = 'umap')
@@ -1936,7 +1958,7 @@ result[result>2]=2
 result[result<-2]=-2
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 p <- pheatmap(result[1:20,],
                 cluster_rows = F,
                 cluster_cols = T,
@@ -1954,7 +1976,9 @@ dev.off()
 rm(p,p1,p2,p3,p4,plotc,result,dat,group,i,ind,meta,msigdbr_list,m_df,kegg.info,expr,es,data1,data)
 ```
 
-# 13. 
+# Code and output availability
+[Gitee-sc-rnaseq-lihc](https://gitee.com/yilingzhang/sc-rnaseq-lihc)
+
 
 # References  
 
@@ -1964,28 +1988,36 @@ rm(p,p1,p2,p3,p4,plotc,result,dat,group,i,ind,meta,msigdbr_list,m_df,kegg.info,e
 [Broad Institute-ANALYSIS OF SINGLE CELL RNA-SEQ DATA](https://broadinstitute.github.io/2020_scWorkshop/)  
 
 ---
+
 [Seurat: Quality control](https://nbisweden.github.io/workshop-scRNAseq/labs/compiled/seurat/seurat_01_qc.html#Save_data)  
 [DoubletFinder：利用人造的最近邻域检测单细胞RNA测序中的doublets](https://www.jianshu.com/p/0cb401b1ebe6)   
 [scRNAseq双细胞去除-1: DoubletFinder](https://www.jianshu.com/p/6770c6a05287)  
+
 ---
+
 [Using sctransform in Seurat](https://satijalab.org/seurat/articles/sctransform_vignette.html)  
+
 ---
+
 [Use inferCNV to analyze copy number variation in single-cell transcriptome](https://www.programmersought.com/article/43744931533/)    
 [单细胞转录组（16）10X inferCNV学习笔记](https://www.codenong.com/js69114a591956/#:~:text=InferCNV,%E6%AE%B5%E7%9A%84%E8%8E%B7%E5%BE%97%E6%88%96%E7%BC%BA%E5%A4%B1%E3%80%82)   
 [单细胞转录组高级分析四：scRNA数据推断CNV](https://cloud.tencent.com/developer/article/1692246)  
+
 ---
+
 [Using Monocle 3 with Seurat 3 integrated object #1658](https://github.com/satijalab/seurat/issues/1658)  
 [How to use Seurat Generated UMAP for Monocle3 pseudotime analyse? #388](https://github.com/cole-trapnell-lab/monocle-release/issues/388)  
 [Getting started with Monocle 3](https://cole-trapnell-lab.github.io/monocle3/docs/starting/)  
+
 ---
+
 [CellChat：细胞间相互作用分析利器](https://www.jianshu.com/p/da145cff3d41)   
 [Inference and analysis of cell-cell communication using CellChat](https://htmlpreview.github.io/?https://github.com/sqjin/CellChat/blob/master/tutorial/CellChat-vignette.html)  
 [Interface with other single-cell analysis toolkits](https://htmlpreview.github.io/?https://github.com/sqjin/CellChat/blob/master/tutorial/Interface_with_other_single-cell_analysis_toolkits.html#create-a-cellchat-object-from-seurat-or-singlecellexperiment-object)  
 
+---
 
-<details>
-  <summary>**Session Info**</summary>
+# Appendix
 ```{r}
 sessionInfo()
 ```
-</details>
