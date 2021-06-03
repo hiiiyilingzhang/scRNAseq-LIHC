@@ -5,11 +5,11 @@
 Based on: 2019-Cancer Cell-Tumor Cell Biodiversity Drives Microenvironmental Reprogramming in Liver Cancer
 
 ## Analysis abstract
-<center><img src="src/Figures/graphicab.png" alt="Graphical Abstract" style="zoom:80%;" /></center>
+![Graphical Abstract]("src/Figures/graphicab.png")
 
 ### RProject Structure
 ```
-├── **data** # ignore
+├── data # ignore
 │ ├── cellchat
 │ ├── celltrajectory
 │ ├── Enrichment
@@ -20,7 +20,7 @@ Based on: 2019-Cancer Cell-Tumor Cell Biodiversity Drives Microenvironmental Rep
 │ ├── Set2.raw
 │ ├── SingleR
 │ └── tmp.data
-├── **output**
+├── output
 │ ├── 10.Cellcellcommu
 │ ├── 12.Enrichment
 │ ├── 2.ExamineData
@@ -30,10 +30,10 @@ Based on: 2019-Cancer Cell-Tumor Cell Biodiversity Drives Microenvironmental Rep
 │ ├── 7.Annotation
 │ ├── 8.inferCNV
 │ └── 9.celltrajectory
-├── **reports**
+├── reports
 │ ├── scRNAseq-analysis.html
 │ └── scRNAseq-analysis.Rmd
-└── **src**
+└── src
     ├── bin # Paper
     ├── Figures # Uploaded figures
     └── script # R script
