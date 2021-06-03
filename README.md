@@ -4,9 +4,6 @@
 2020-2021 Sem-2 NGS-02 scRNA-seq project  
 Based on: 2019-Cancer Cell-Tumor Cell Biodiversity Drives Microenvironmental Reprogramming in Liver Cancer
 
-## Analysis abstract
-![Graphical Abstract](./src/Figures/graphicab.png)
-
 ### RProject Structure
 ```
 ├── data # ignore
