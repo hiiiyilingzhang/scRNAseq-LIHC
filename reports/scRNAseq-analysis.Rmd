@@ -261,7 +261,7 @@ library(sctransform)
 set1.obj <- SCTransform(set1.obj, verbose = F) %>% RunPCA(verbose = F)
 ```
 
-```{r}
+```{r fig.height=5, fig.width=5}
 ElbowPlot(set1.obj)
 ```
 
@@ -621,7 +621,7 @@ dev.off()
 ## 5.2 Determine statistically significant principal components
 
 We can use `ElbowPlot` to identify significant PCs.
-```{r}
+```{r fig.height=5, fig.width=5}
 ElbowPlot(object = set1.obj)
 ```
 
@@ -898,9 +898,10 @@ rm(hpca.se,p5,p6,pred.main.hpca,result_main_hpca,set1_forhpca.se,
 ```
 
 ---
+
 Conparison between SingleR annotation and the annotation from paper  
 
-```{r fig.width=10}
+```{r eval = F}
 p7 <- DimPlot(set1.obj, reduction = "tsne", group.by = "HPCA_Main", pt.size=0.5, label = TRUE,repel = TRUE)+theme(
   axis.line = element_blank(),
   axis.ticks = element_blank(),axis.text = element_blank()
@@ -924,6 +925,10 @@ p8 <- DimPlot(set1.obj, reduction = "tsne", group.by = "Type", pt.size=0.5, labe
 )
 plot_grid(p7, p8, rel_widths = c(2,2))
 dev.off()
+```
+
+```{r echo=FALSE,out.width = '100%',fig.align = "center"}
+knitr::include_graphics("../output/7.Annotation/tsne-compare-2.png")
 ```
 
 ```{r include=FALSE}
@@ -1396,7 +1401,7 @@ rm(cell_metadata, cell_metadata_sort, expression_matrix, expression_matrix_df, g
 ```
 
 ## 9.2 Transfer Seurat embeddings
-```{r}
+```{r fig.width=5}
 # preprocess_cds函数相当于seurat中NormalizeData+ScaleData+RunPCA
 my.cds <- preprocess_cds(my.cds, num_dim = 30)
 
@@ -1413,7 +1418,7 @@ dev.off()
 
 
 Import Seurat data
-```{r}
+```{r fig.width=5}
 ##从seurat导入整合过的umap坐标
 my.cds@int_colData@listData$reducedDims$UMAP <- malignant.obj@reductions$umap@cell.embeddings
 
@@ -1426,7 +1431,7 @@ plot_cells(my.cds, reduction_method="UMAP", color_cells_by="Type") + ggtitle('in
 dev.off()
 ```
 
-```{r}
+```{r fig.width=5}
 # Copy cluster info from Seurat
 DF.name <- colnames(malignant.obj@meta.data)[grepl("DF.classification", colnames(malignant.obj@meta.data))]
 
@@ -1435,13 +1440,13 @@ my.cds@clusters$UMAP_so$clusters <- malignant.obj@meta.data$DF.name
 
 ## 9.3 Run Monocle3
 ### 9.3.1 Cluster
-```{r}
+```{r fig.width=5}
 ## Monocle3
 my.cds <- cluster_cells(my.cds)
 plot_cells(my.cds, show_trajectory_graph = FALSE) + ggtitle("label by clusterID")
 ```
 
-```{r}
+```{r fig.width=5}
 plot_cells(my.cds, color_cells_by = "cluster", show_trajectory_graph = FALSE) + ggtitle("label by cluster")
 ```
 
@@ -1594,7 +1599,7 @@ pheatmap::pheatmap(tmp.data, clustering_method="ward.D2",
 dev.off()
 ```
 
-```{r echo=FALSE,out.width = '70%',fig.align = "center"}
+```{r echo=FALSE,out.width = '100%',fig.align = "center"}
 knitr::include_graphics("../output/9.celltrajectory/ITH-heatmap.png")
 ```
 
