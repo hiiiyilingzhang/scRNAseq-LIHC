@@ -30,6 +30,54 @@ knitr::opts_chunk$set(
 knitr::include_graphics("../src/Figures/graphicab.jpg")
 ```
 
+* **HCC（肝细胞癌）和iCCA（肝内胆管癌）具有不同程度的转录多样性;**
+* **肿瘤转录多样性与患者预后相关;**
+* **肿瘤来源的血管内皮生长因子驱动微环境重组;**
+* **较高异质性来源的肿瘤T细胞具有较低的细胞溶解活性.**
+
+---
+
+```{r echo=FALSE,out.width = '75%',fig.align = "center"}
+knitr::include_graphics("../src/Figures/Figure1.jpg")
+```
+
+* 为了研究肿瘤细胞的生物多样性，该研究用单细胞测序测了19个接受了免疫检查点治疗的肝细胞肝癌（HCC）和肝内胆管癌（iCCA）病人。其中12个病人组成一个训练集（5115个细胞），另外7个组成验证集（4831个细胞）；
+* A为研究的流程，B图表明这12个病人(Set 1)的肿瘤细胞可以形成不同的cluster，有些独立，有些相互重叠。C图表明，有些细胞会有较高的表皮marker基因表达，提示这些肿瘤细胞可能有着相同的肿瘤起源；
+* 通过inferCNVs，进一步区分了702个恶性细胞和4380个非恶性细胞(图1D)，并基于上皮标记基因和肝脏标记基因成功富集出恶性和非恶性细胞，这些标记基因的表达与恶性细胞和非恶性细胞的核型高度一致(图1E)。
+
+---
+
+```{r echo=FALSE,out.width = '75%',fig.align = "center"}
+knitr::include_graphics("../src/Figures/Figure2.jpg")
+```
+
+* 通过对恶性和非恶性细胞进行t-SNE分析发现，恶性细胞形成了患者特异性细胞簇，同时也观察到肿瘤内部细胞同样存在异质性，表明肿瘤间和肿瘤内均存在转录组异质性(图2A);
+* 非恶性细胞主要根据细胞类型进行分组(图2B)。文章比较了肿瘤患者中恶性细胞和非恶性细胞比例的变化(图2C)，并选择其中具有超过20个恶性细胞的8个样本进行分析。这8例患者中，基质细胞的组成同样具有高度异质性(图2D)。其中，H23、H30、H37、H38为HCC, C25、C26、C29、C39为iCCA(图2E)；
+
+---
+
+```{r echo=FALSE,out.width = '75%',fig.align = "center"}
+knitr::include_graphics("../src/Figures/Figure3.jpg")
+```
+
+* 通过对10个肝癌干细胞相关基因EPCAM、KRT19、PROM1、ALDH1A1、CD24、ANPEP、CD44、ICAM1、CD47和SOX9的平均表达水平的比较，确定了肿瘤细胞的邻近相似性与细胞干细胞的关系(图3A)。并且通过对所有恶性细胞的相关性分析，进一步揭示瘤内转录组的多样性(图3B)；
+* 为了进一步确定ITH的水平，文章开发了一种计算肿瘤细胞特异性转录组多样性得分的方法。使用PCs代替原始的恶性细胞基因表达谱来测量每个肿瘤的多样性(即ITH)(图3C)；
+* 根据特征值排列选择前30个个体(图3D)。然后根据肿瘤样本的多样性得分将8个肿瘤样本分为多样性高(div -high)组和多样性低(div-low)组(图3E)；
+* 多样性高组患者的总生存期和无进展生存期均明显低于多样性低组(图3F)。
+* 对验证集（set2）应用多样性得分计算方法，分析显示，部分iCCA患者的多样性评分明显高于HCC患者(图3H)。
+
+---
+
+```{r echo=FALSE,out.width = '75%',fig.align = "center"}
+knitr::include_graphics("../src/Figures/Figure4.jpg")
+```
+
+* 在验证集set 1中，来自div-high和div-low肿瘤的非恶性细胞转录组不同(图4A)。当分析单个细胞类型时，差异进一步明显(图4B)，暗示TME可能与肿瘤细胞多样性有关。
+* 文章发现，VEGFA主要表达于恶性细胞而非非恶性细胞中(图4D)。此外，VEGFA在div-high的肿瘤细胞内表达水平显著高于在div-low肿瘤细胞中(图4E)；并使用免疫组化分析验证了肿瘤细胞中VEGFA的表达模式(图4F)。
+* 由于VEGFA是缺氧诱导因子1-α(HIF1A)的直接靶标，HIF1A是感应缺氧的关键因子，因此该团队确定set 1中， div-high的肿瘤比div-low的肿瘤更容易缺氧。该团队发现div-high组肿瘤细胞中缺氧相关基因的表达水平远高于div-low组(图4G)。
+* 文章根据每种非恶性细胞类型的基因进行PCA分析。发现可以根据VEGFA区分div-high和div-low的TECs、TAMs和CAFs，但不能区分T细胞(图4I)。
+
+
 # 1. Data Download and Extract
 
 Downloaded data from GEO(GSE125449) and unzip.   [GSE125449-Page](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125449)  
